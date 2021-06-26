@@ -162,7 +162,7 @@ def rotate2d_with_mask(image, mask):
     return img_rotate, mask_rotate
 
 
-def rotate2d_augmentation(image, bounding_box=None, mask=None):
+def rotate2d_augmentation(image, bounding_box=None, mask=None, point=None):
     additional = []
 
     _, h_og, w_og = image.shape
@@ -306,7 +306,7 @@ def horizontal_flip_with_mask(image, mask):
     return img_flip, mask_flip
 
 
-def horizontal_flip_augmentation(image, bounding_box=None, mask=None):
+def horizontal_flip_augmentation(image, bounding_box=None, mask=None, point=None):
     additional = []
 
     prob = np.random.rand()
@@ -324,12 +324,18 @@ def horizontal_flip_augmentation(image, bounding_box=None, mask=None):
         if mask is not None:
             mask_flip = transforms.RandomHorizontalFlip(1)(mask)
             additional.append(mask_flip)
+        if point is not None:
+            w = image.shape[-1]
+            point[..., 0] = w - point[..., 0]
+            additional.append(point)
     else:
         img = image
         if bounding_box is not None:
             additional.append(bounding_box)
         if mask is not None:
             additional.append(mask)
+        if point is not None:
+            additional.append(point)
 
     if len(additional) == 0:
         return img
@@ -347,17 +353,17 @@ def shift_with_mask(image, mask):
     return img_shift, mask_shift
 
 
-def shift_augmentation(image, bounding_box=None, mask=None):
+def shift_augmentation(image, bounding_box=None, mask=None, point=None):
     additional = []
 
     dist_y, dist_x = [np.random.randint(-30, 30) for _ in range(2)]
-    if torch.sum(bounding_box[..., 0] + dist_y < 0) + torch.sum(image.shape[-2] < bounding_box[..., 2] + dist_y) > 0:
-        dist_y = 0
-    if torch.sum(bounding_box[..., 1] + dist_x < 0) + torch.sum(image.shape[-2] < bounding_box[..., 3] + dist_x) > 0:
-        dist_x = 0
 
-    img_shift = torch.roll(image, shifts=(dist_y, dist_x), dims=(1, 2))
     if bounding_box is not None:
+        if torch.sum(bounding_box[..., 0] + dist_y < 0) + torch.sum(image.shape[-2] < bounding_box[..., 2] + dist_y) > 0:
+            dist_y = 0
+        if torch.sum(bounding_box[..., 1] + dist_x < 0) + torch.sum(image.shape[-2] < bounding_box[..., 3] + dist_x) > 0:
+            dist_x = 0
+
         bbox_shift = bounding_box
         bbox_shift[..., 0] += dist_y
         bbox_shift[..., 1] += dist_x
@@ -367,6 +373,26 @@ def shift_augmentation(image, bounding_box=None, mask=None):
     if mask is not None:
         mask_shift = torch.roll(mask, shifts=(dist_y, dist_x), dims=(1, 2))
         additional.append(mask_shift)
+    if point is not None:
+        if torch.sum(point[..., 0] + dist_x < 0) + torch.sum(image.shape[-1] < point[..., 0] + dist_x) > 0:
+            dist_x = 0
+        if torch.sum(point[..., 1] + dist_y < 0) + torch.sum(image.shape[-2] < point[..., 1] + dist_y) > 0:
+            dist_y = 0
+
+        point[..., 0] += dist_x
+        point[..., 1] += dist_y
+        additional.append(point)
+
+    # img_shift = torch.zeros(image.shape)
+    img_shift = torch.roll(image, shifts=(dist_y, dist_x), dims=(1, 2))
+    if dist_x < 0:
+        img_shift[..., dist_x:] = 0
+    else:
+        img_shift[..., :dist_x] = 0
+    if dist_y < 0:
+        img_shift[:, dist_y:] = 0
+    else:
+        img_shift[:, :dist_y] = 0
 
     if len(additional) == 0:
         return image

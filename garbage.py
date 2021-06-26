@@ -1,6 +1,7 @@
+import torch
 
 
 if __name__ == '__main__':
-    id = '139'
-    fn = '0' * (12 - len(id)) + id
-    print(fn)
+    a = torch.linspace(0, 11, 12).reshape(-1, 2)
+    b = torch.Tensor([1.3])
+    print(torch.ceil(b))
